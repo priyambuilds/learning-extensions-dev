@@ -1,13 +1,12 @@
-import { defineConfig } from '.wxt';
+import { defineConfig } from 'wxt';
 
+// See https://wxt.dev/api/config.html
 export default defineConfig({
   // Enable src directory structure
   srcDir: 'src',
 
   // Auto-detect browser (no hardcoded browser)
   // WXT automatically uses MV3 for Chrome, MV2 for Firefox
-
-  // React support
   modules: ['@wxt-dev/module-react'],
 
   // Dynamic manifest based on target browser
@@ -52,15 +51,6 @@ export default defineConfig({
           },
         },
       }),
-
-      // Chrome-specific features
-      ...(browser === 'chrome' &&
-        manifestVersion === 3 && {
-          // Chrome MV3 specific features
-          side_panel: {
-            default_path: 'sidepanel.html',
-          },
-        }),
     };
 
     return baseManifest;
@@ -77,6 +67,6 @@ export default defineConfig({
     },
   }),
 
-  // Specify entrypoints to include (replace with your actual entrypoint names)
-  filterEntrypoints: ['popup', 'background', 'sidepanel'],
+  // Specify entrypoints to include (only popup and background)
+  filterEntrypoints: ['popup', 'background'],
 });

@@ -27,7 +27,6 @@
       "@/utils/*": ["./src/utils/*"],
       "@/types/*": ["./src/types/*"]
     }
-
   },
   "include": [
     "src/**/*",
@@ -36,6 +35,6 @@
     ".wxt/types/**/*",
     "web-ext.config.ts"
   ],
-  
+
   "exclude": ["node_modules", "dist", ".output"]
 }

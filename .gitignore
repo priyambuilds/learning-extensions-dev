@@ -24,9 +24,5 @@ web-ext.config.ts
 *.njsproj
 *.sln
 *.sw?
-/.env.publish/.prettierrc
-/.output
-/.wxt
-/node_modules
 /.env
-/.emv.publish
+/.env.publish
