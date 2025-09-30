@@ -1,6 +1,10 @@
 export default defineContentScript({
-  matches: ['*://*.google.com/*'],
+  matches: ['*://*.youtube.com/*'],
+  cssInjectionMode : 'ui',
+  runAt: "document_end",
+
   main() {
-    console.log('Hello content.');
+  
+    
   },
 });

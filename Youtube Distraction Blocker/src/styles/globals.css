@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Apple-inspired CSS variables (shadcn compatible) */
+@layer base {
+  :root {
+    /* Light mode (Apple White) */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 211 100% 50%; /* Apple Blue #007AFF */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 211 100% 50%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Dark mode (Apple Dark) */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 211 100% 50%; /* Apple Blue stays same */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 211 100% 50%;
+  }
+}
+
+/* Base layer common styles */
+@layer base {
+  /* Universal border color */
+  * {
+    @apply border-border;
+  }
+  
+  /* Body styling */
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth; /* Smooth scrolling like macOS */
+  }
+
+  /* Improved selection highlight */
+  ::selection {
+    @apply bg-primary/20;
+  }
+
+  /* Apple-style focus rings for accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+/* Apple-style glassmorphism effect */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(80px) saturate(180%);
+  -webkit-backdrop-filter: blur(80px) saturate(180%);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+}
+
+.dark .glass-effect {
+  background: rgba(28, 28, 30, 0.7);
+}
+
+/* Apple-style subtle hover effects for UI elements */
+.apple-hover {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, box-shadow;
+  cursor: pointer;
+}
+
+.apple-hover:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 10px rgba(62, 166, 255, 0.5);
+}
+
+.apple-hover:active {
+  transform: scale(0.98);
+  box-shadow: none;
+}
