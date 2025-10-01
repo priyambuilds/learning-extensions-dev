@@ -23,6 +23,13 @@ export async function getSettings(): Promise<ZenSettings> {
     return await zenSettings.getValue();
 }
 
+// Save settings to storage
+export async function saveSettings(newSettings: Partial<ZenSettings>): Promise<void> {
+  const currentSettings = await zenSettings.getValue();
+  const updatedSettings = { ...currentSettings, ...newSettings };
+  await zenSettings.setValue(updatedSettings);
+}
+
 // Watch for settings changes
 export function onSettingsChanged(callback: (settings: ZenSettings) => void) {
     return storage.watch('local:zenSettings', async () => {

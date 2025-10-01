@@ -2,6 +2,7 @@ import {useState, useEffect, useRef} from 'react'
 import {Input} from '@/ui/input'
 import {Button} from '@/ui/button'
 import { Search } from 'lucide-react';
+import { getSettings, onSettingsChanged, type ZenSettings } from '@/lib/storage';
 
 /**
  * A simple, full-page search input for YouTube.
@@ -10,7 +11,19 @@ import { Search } from 'lucide-react';
  */
 export default function ZenSearch() {
     const [query , setQuery] = useState('')
+    const [settings, setSettings] = useState<ZenSettings | null>(null);
     const inputRef = useRef<HTMLInputElement>(null)
+
+    // Load settings and watch for changes
+    useEffect(() => {
+        // Load initial settings
+        getSettings().then(setSettings);
+
+        // Watch for changes
+        const unwatch = onSettingsChanged(setSettings);
+
+        return unwatch;
+    }, []);
 
     // Focus input on mount
     useEffect(() => {
@@ -23,6 +36,8 @@ export default function ZenSearch() {
         window.location.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
     }
 
+    
+
     // Handle Enter Key
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter') {
@@ -30,13 +45,17 @@ export default function ZenSearch() {
         }
     };
 
+      // Don't render if disabled
+    if (!settings?.enabled) {
+        return null;
+    }
+
     return (
         <div className='fixed inset-0 flex flex-col items-center justify-center px-6 cover-full bg-background dark:bg-background'>
-            {/* Heading */}
-            <h1 className='mb-8 text-4xl font-semibold text-center text-foreground'>
-                What do you want to see?
+            {/* Dynamic heading */}
+            <h1 className="max-w-4xl mb-8 text-5xl font-semibold tracking-tight text-center text-foreground">
+                {settings.customMessage}
             </h1>
-
             {/* Input */}
             <form onSubmit={handleSubmit} className='w-full max-w-2xl'>
                 <div className='relative'>
