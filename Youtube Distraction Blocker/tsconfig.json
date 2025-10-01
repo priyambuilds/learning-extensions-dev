@@ -32,7 +32,8 @@
       "@/utils/*": ["src/utils/*"],
       "@/types/*": ["src/types/*"],
       "@/ui/*": ["src/components/ui/*"],
-      "@/lib/*": ["src/lib/*"]
+      "@/lib/*": ["src/lib/*"],
+      "@/styles/*": ["src/styles/*"],
     },   
 
     /* Types: add Chrome + webextension and WXT auto-imports */
