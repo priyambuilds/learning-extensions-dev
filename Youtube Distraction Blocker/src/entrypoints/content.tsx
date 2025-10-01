@@ -7,16 +7,19 @@ import {
   YT_SELECTORS,
   getCurrentPageType,
   isFeatureAvailableOnPage,
+  exists,
+  hasChildElements,
   type PageType
 } from '@/lib/yt-selectors';
 import type { ZenSettings, FeatureToggles } from '@/types/settings';
+import { DEFAULT_SETTINGS } from '@/types/settings';
 
 // Feature module interfaces
 interface FeatureModule {
   name: keyof FeatureToggles;
+  isEnabled: boolean;
   enable: (pageType: PageType) => void;
   disable: () => void;
-  isEnabled: boolean;
 }
 
 class YouTubeDistractionController {
@@ -27,6 +30,8 @@ class YouTubeDistractionController {
   private features: Record<string, FeatureModule> = {};
   private mutationObserver: MutationObserver | null = null;
   private isInitialized = false;
+  private isDomReady = false;
+  private pendingSettings: ZenSettings | null = null;
 
   constructor() {
     this.initialize();
@@ -36,27 +41,73 @@ class YouTubeDistractionController {
     if (this.isInitialized) return;
     this.isInitialized = true;
 
-    // Load initial settings
-    this.settings = await getSettings();
+    console.log('Zen YouTube: Starting initialization...');
 
-    // Watch for settings changes
-    onSettingsChanged((newSettings) => {
-      this.handleSettingsChange(newSettings);
+    // Wait for DOM and then load settings
+    this.waitForDomReady().then(() => {
+      this.loadSettingsAndInitialize();
     });
+  }
 
-    // Initialize feature modules
-    this.initializeFeatureModules();
+  private async waitForDomReady(): Promise<void> {
+    return new Promise((resolve) => {
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        // DOM is ready, but wait a bit for YouTube to load
+        setTimeout(() => {
+          this.isDomReady = true;
+          resolve();
+        }, 100);
+        return;
+      }
 
-    // Set up SPA navigation listening
-    this.setupNavigationObserver();
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          this.isDomReady = true;
+          resolve();
+        }, 100);
+      });
+    });
+  }
 
-    // Set up message listener for commands
-    this.setupMessageListener();
+  private async loadSettingsAndInitialize() {
+    try {
+      // Watch for settings changes (set up before loading to not miss any changes)
+      onSettingsChanged((newSettings) => {
+        if (this.settings === null) {
+          // Settings not loaded yet, store for later processing
+          this.pendingSettings = newSettings;
+        } else {
+          this.handleSettingsChange(newSettings);
+        }
+      });
 
-    // Initial page processing
-    this.onNavigation();
+      // Load initial settings
+      this.settings = await getSettings();
+      console.log('Zen YouTube: Settings loaded', this.settings);
 
-    console.log('Zen YouTube: Initialized with settings', this.settings);
+      // Initialize feature modules
+      this.initializeFeatureModules();
+
+      // Set up SPA navigation listening (after DOM ready)
+      this.setupNavigationObserver();
+
+      // Set up message listener for commands
+      this.setupMessageListener();
+
+      // Initial page processing
+      this.onNavigation();
+
+      // Handle any pending settings
+      if (this.pendingSettings) {
+        this.handleSettingsChange(this.pendingSettings);
+        this.pendingSettings = null;
+      }
+
+    } catch (error) {
+      console.error('Zen YouTube: Failed to initialize', error);
+      // Fallback to defaults if settings fail
+      this.settings = { ...DEFAULT_SETTINGS };
+    }
   }
 
   private initializeFeatureModules() {
@@ -215,44 +266,114 @@ class YouTubeDistractionController {
 }
 
 // Feature Module Implementations
-class HideShortsModule implements FeatureModule {
-  name = 'hideShorts' as const;
+abstract class BaseFeatureModule implements FeatureModule {
+  abstract name: keyof FeatureToggles;
   isEnabled = false;
+  private retryAttempts = 0;
+  private maxRetries = 10;
+  private retryInterval = 500;
+
+  protected abstract getSelectors(): { container: string; items?: string } & { [key: string]: string };
+  protected guard?(): boolean;
 
   enable(pageType: PageType) {
     if (this.isEnabled) return;
     this.isEnabled = true;
-
-    const selectors = YT_SELECTORS.distractions.shorts;
-    if (!selectors.guard()) return;
-
-    const elements = [
-      selectors.container,
-      selectors.shelf,
-      selectors.items,
-    ];
-
-    this.hideElements(elements);
+    this.retryAttempts = 0;
+    this.applyHide();
   }
 
   disable() {
     if (!this.isEnabled) return;
     this.isEnabled = false;
-    this.showElements(YT_SELECTORS.distractions.shorts.container);
+    this.applyShow();
   }
 
-  private hideElements(selectors: string[]) {
-    selectors.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => {
+  private applyHide() {
+    const selectors = this.getSelectors();
+    const elements = Object.values(selectors);
+
+    try {
+      const foundElements = document.querySelectorAll(elements.join(', '));
+
+      if (foundElements.length === 0 && this.retryAttempts < this.maxRetries) {
+        // Try again later
+        this.retryAttempts++;
+        setTimeout(() => this.applyHide(), this.retryInterval);
+        return;
+      }
+
+      foundElements.forEach(el => {
         (el as HTMLElement).style.display = 'none';
       });
-    });
+
+      // Set up observer for new elements
+      this.observeNewElements(selectors);
+
+    } catch (error) {
+      console.log(`Zen YouTube: Error hiding ${this.name}`, error);
+    }
   }
 
-  private showElements(selector: string) {
-    document.querySelectorAll(selector).forEach(el => {
-      (el as HTMLElement).style.display = '';
+  private applyShow() {
+    const selectors = this.getSelectors();
+    const elements = Object.values(selectors);
+
+    try {
+      document.querySelectorAll(elements.join(', ')).forEach(el => {
+        (el as HTMLElement).style.display = '';
+      });
+    } catch (error) {
+      console.log(`Zen YouTube: Error showing ${this.name}`, error);
+    }
+  }
+
+  private observeNewElements(selectors: Record<string, string>) {
+    const observer = new MutationObserver((mutations) => {
+      if (!this.isEnabled) return;
+
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node as HTMLElement;
+            const shouldHide = Object.values(selectors).some(selector => {
+              return element.matches && element.matches(selector);
+            }) || Object.values(selectors).some(selector => {
+              return element.querySelector && element.querySelector(selector) !== null;
+            });
+
+            if (shouldHide) {
+              // Apply hiding to new elements
+              Object.values(selectors).forEach(sel => {
+                element.querySelectorAll(sel).forEach(el => {
+                  (el as HTMLElement).style.display = 'none';
+                });
+              });
+            }
+          }
+        });
+      });
     });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+}
+
+class HideShortsModule extends BaseFeatureModule implements FeatureModule {
+  name = 'hideShorts' as const;
+
+  protected getSelectors() {
+    return {
+      container: YT_SELECTORS.distractions.shorts.container,
+      shelf: YT_SELECTORS.distractions.shorts.shelf,
+      items: YT_SELECTORS.distractions.shorts.items,
+    };
+  }
+
+  protected guard() {
+    return typeof YT_SELECTORS.distractions.shorts.guard === 'function'
+      ? YT_SELECTORS.distractions.shorts.guard()
+      : true;
   }
 }
 
@@ -263,7 +384,6 @@ class HideHomeFeedModule implements FeatureModule {
   enable(pageType: PageType) {
     if (this.isEnabled || pageType !== 'home') return;
     this.isEnabled = true;
-
     // This is handled by zen search, but register as enabled
   }
 
@@ -273,124 +393,71 @@ class HideHomeFeedModule implements FeatureModule {
   }
 }
 
-class HideEndCardsModule implements FeatureModule {
+class HideEndCardsModule extends BaseFeatureModule implements FeatureModule {
   name = 'hideEndCards' as const;
-  isEnabled = false;
 
-  enable(pageType: PageType) {
-    if (this.isEnabled || pageType !== 'watch') return;
-    this.isEnabled = true;
-
-    const selectors = YT_SELECTORS.distractions.endScreens;
-    if (!selectors.guard()) return;
-
-    document.querySelectorAll([
-      selectors.container,
-      selectors.overlay,
-      selectors.suggestions,
-    ].join(', ')).forEach(el => {
-      (el as HTMLElement).style.display = 'none';
-    });
+  protected getSelectors() {
+    return {
+      container: YT_SELECTORS.distractions.endScreens.container,
+      overlay: YT_SELECTORS.distractions.endScreens.overlay,
+      suggestions: YT_SELECTORS.distractions.endScreens.suggestions,
+    };
   }
 
-  disable() {
-    if (!this.isEnabled) return;
-    this.isEnabled = false;
-
-    document.querySelectorAll([
-      YT_SELECTORS.distractions.endScreens.container,
-      YT_SELECTORS.distractions.endScreens.overlay,
-      YT_SELECTORS.distractions.endScreens.suggestions,
-    ].join(', ')).forEach(el => {
-      (el as HTMLElement).style.display = '';
-    });
+  protected guard() {
+    return typeof YT_SELECTORS.distractions.endScreens.guard === 'function'
+      ? YT_SELECTORS.distractions.endScreens.guard()
+      : true;
   }
 }
 
-class HideCommentsModule implements FeatureModule {
+class HideCommentsModule extends BaseFeatureModule implements FeatureModule {
   name = 'hideComments' as const;
-  isEnabled = false;
 
-  enable(pageType: PageType) {
-    if (this.isEnabled || !['watch', 'results'].includes(pageType)) return;
-    this.isEnabled = true;
-
-    const selectors = YT_SELECTORS.distractions.comments;
-    if (!selectors.guard()) return;
-
-    document.querySelectorAll([
-      selectors.container,
-      selectors.entryPoints,
-      selectors.mainComments,
-    ].join(', ')).forEach(el => {
-      (el as HTMLElement).style.display = 'none';
-    });
+  protected getSelectors() {
+    return {
+      container: YT_SELECTORS.distractions.comments.container,
+      entryPoints: YT_SELECTORS.distractions.comments.entryPoints,
+      mainComments: YT_SELECTORS.distractions.comments.mainComments,
+    };
   }
 
-  disable() {
-    if (!this.isEnabled) return;
-    this.isEnabled = false;
-
-    document.querySelectorAll([
-      YT_SELECTORS.distractions.comments.container,
-      YT_SELECTORS.distractions.comments.entryPoints,
-      YT_SELECTORS.distractions.comments.mainComments,
-    ].join(', ')).forEach(el => {
-      (el as HTMLElement).style.display = '';
-    });
+  protected guard() {
+    return typeof YT_SELECTORS.distractions.comments.guard === 'function'
+      ? YT_SELECTORS.distractions.comments.guard()
+      : true;
   }
 }
 
-class HideSidebarModule implements FeatureModule {
+class HideSidebarModule extends BaseFeatureModule implements FeatureModule {
   name = 'hideSidebar' as const;
-  isEnabled = false;
 
-  enable(pageType: PageType) {
-    if (this.isEnabled || pageType !== 'watch') return;
-    this.isEnabled = true;
-
-    const selector = YT_SELECTORS.distractions.sidebar.container;
-    document.querySelectorAll(selector).forEach(el => {
-      (el as HTMLElement).style.display = 'none';
-    });
+  protected getSelectors() {
+    return {
+      container: YT_SELECTORS.distractions.sidebar.container,
+    };
   }
 
-  disable() {
-    if (!this.isEnabled) return;
-    this.isEnabled = false;
-
-    document.querySelectorAll(YT_SELECTORS.distractions.sidebar.container).forEach(el => {
-      (el as HTMLElement).style.display = '';
-    });
+  protected guard() {
+    return typeof YT_SELECTORS.distractions.sidebar.guard === 'function'
+      ? YT_SELECTORS.distractions.sidebar.guard()
+      : true;
   }
 }
 
-class SearchOnlyModule implements FeatureModule {
+class SearchOnlyModule extends BaseFeatureModule implements FeatureModule {
   name = 'searchOnly' as const;
-  isEnabled = false;
 
-  enable(pageType: PageType) {
-    if (this.isEnabled || pageType !== 'results') return;
-    this.isEnabled = true;
-
-    // For search-only, hide everything except the actual search results
-    const selectors = YT_SELECTORS.distractions.searchOnly;
-    if (!selectors.guard()) return;
-
-    // This would hide secondary content and focuses only on main results
-    // More selective than zen search - keeps YouTube's search results visible
-    document.querySelectorAll(YT_SELECTORS.containers.secondaryContent).forEach(el => {
-      (el as HTMLElement).style.display = 'none';
-    });
+  protected getSelectors() {
+    return {
+      container: YT_SELECTORS.containers.secondaryContent,
+    };
   }
 
-  disable() {
-    if (!this.isEnabled) return;
-    this.isEnabled = false;
-
-    document.querySelectorAll(YT_SELECTORS.containers.secondaryContent).forEach(el => {
-      (el as HTMLElement).style.display = '';
-    });
+  protected guard() {
+    return typeof YT_SELECTORS.distractions.searchOnly?.guard === 'function'
+      ? YT_SELECTORS.distractions.searchOnly.guard()
+      : true;
   }
 }
 

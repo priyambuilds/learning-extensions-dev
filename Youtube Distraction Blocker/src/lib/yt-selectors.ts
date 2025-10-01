@@ -27,7 +27,7 @@ export const existsAndVisible = (selector: string) => {
 export const hasChildElements = (selector: string, minCount: number = 1) => {
   try {
     const element = document.querySelector(selector);
-    return element && element.children.length >= minCount;
+    return element ? element.children.length >= minCount : false;
   } catch {
     return false;
   }
