@@ -1,39 +1,57 @@
 import { defineConfig } from 'wxt';
+import { resolve } from 'node:path';
 
 export default defineConfig({
+  // Source root
   srcDir: 'src',
-  
+
+  // Framework integration (React/Vite wiring)
   modules: ['@wxt-dev/module-react'],
 
-  // Extensionpp will force-reload on manifest changes
-  runner: {
-    disabled: false,
+  // Use bundler + TS-aware aliases the WXT way
+  alias: {
+    '@': resolve('src'),
   },
 
+  // Generate manifest dynamically (gives access to browser, mode, MV)
   manifest: ({ browser, manifestVersion, mode }) => {
     const isDev = mode === 'development';
-    
+
     return {
-      name: 'Zen Youtube',
-      description: 'Minimal YouTube search experience - works on Chrome & Firefox',
+      name: 'Zen YouTube',
+      description: 'Minimal YouTube search experience',
       version: '1.0.0',
-      
-      // Permissions - WXT auto-adapts for MV2/MV3
-      permissions: ['activeTab', 'storage', 'scripting'],
+
+      // Permissions
+      permissions: ['storage', 'scripting', 'activeTab'],
       host_permissions: ['*://*.youtube.com/*'],
 
-      // Extension popup
+      // Toolbar popup
       action: {
-        default_title: 'Zen Youtube Settings',
+        default_title: 'Zen YouTube',
         default_popup: 'popup.html',
       },
 
-      // Content Security Policy (MV3 only, auto-ignored in MV2)
+      // Options page
+      options_ui: {
+        page: 'options.html',
+        open_in_tab: true,
+      },
+
+      // Icons (ensure files exist or remove this block)
+      icons: {
+        16: 'icon/16.png',
+        48: 'icon/48.png',
+        128: 'icon/128.png',
+      },
+
+      // MV3 CSP (WXT will drop this for MV2 targets automatically)
       ...(manifestVersion === 3 && {
         content_security_policy: {
-          extension_pages: isDev 
-            ? "script-src 'self' 'unsafe-eval'; object-src 'self'"  // Dev: allow eval for HMR
-            : "script-src 'self'; object-src 'self'",               // Prod: strict
+          // Dev: enable eval-like tooling for HMR as needed; tighten in prod
+          extension_pages: isDev
+            ? "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' 'inline-speculation-rules'; object-src 'self'"
+            : "script-src 'self'; object-src 'self'",
         },
       }),
 
@@ -42,35 +60,16 @@ export default defineConfig({
         browser_specific_settings: {
           gecko: {
             id: 'zen-youtube@example.com',
-            strict_min_version: '109.0',  // Firefox 109+ for MV3
+            strict_min_version: '109.0',
           },
         },
       }),
-
-      // Icons (add later)
-      icons: {
-        16: 'icon/16.png',
-        48: 'icon/48.png',
-        128: 'icon/128.png',
-      },
     };
   },
 
-  // Vite configuration
+  // Vite build config
   vite: () => ({
-    css: {
-      postcss: './postcss.config.js',
-    },
-    build: {
-      target: 'esnext',
-      minify: 'esbuild',
-    },
-    define: {
-      __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
-    },
+    css: { postcss: './postcss.config.js' },
+    build: { target: 'esnext', minify: 'esbuild' },
   }),
-
-  // ❌ REMOVED: filterEntrypoints
-  // WXT auto-discovers all entrypoints in src/entrypoints/
-  // Don't manually filter unless you have 10+ entrypoints
 });
