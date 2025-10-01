@@ -2,7 +2,8 @@ import {useState, useEffect, useRef} from 'react'
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
-import { getSettings, onSettingsChanged, type ZenSettings } from '@/lib/storage';
+import { getSettings, onSettingsChanged } from '@/lib/storage';
+import type { ZenSettings } from '@/types/settings';
 
 /**
  * A simple, full-page search input for YouTube.

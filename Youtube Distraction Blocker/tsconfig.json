@@ -33,7 +33,7 @@
       "@/types/*": ["src/types/*"],
       "@/ui/*": ["src/components/ui/*"],
       "@/lib/*": ["src/lib/*"]
-    },
+    },   
 
     /* Types: add Chrome + webextension and WXT auto-imports */
     "types": ["chrome", "webextension-polyfill"]
@@ -42,7 +42,8 @@
     "src",
     "wxt.config.ts",
     ".wxt/types",
-    "web-ext.config.ts"
+    "web-ext.config.ts",
+    "vitest.config.ts"
   ],
   "exclude": ["node_modules", "dist", ".output"]
 }
