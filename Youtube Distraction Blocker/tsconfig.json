@@ -43,7 +43,8 @@
     "wxt.config.ts",
     ".wxt/types",
     "web-ext.config.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "test/setup.ts"
   ],
   "exclude": ["node_modules", "dist", ".output"]
 }
