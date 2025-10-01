@@ -1,127 +1,163 @@
-import {useState, useEffect, useRef} from 'react'
+import { useState, useEffect, useRef } from 'react';
 import { Search, Sparkles } from 'lucide-react';
 import { getSettings, onSettingsChanged } from '@/lib/storage';
 import type { ZenSettings } from '@/types/settings';
 
 /**
- * Beautiful, minimal full-page search interface for YouTube
- * Features excellent contrast, smooth animations, and clean design
+ * Minimal full-page search for YouTube
+ * - Pixel-aligned, no scale jitter
+ * - Strong contrast in both themes
+ * - Accessible, extension-safe overlay
  */
 export default function ZenSearch() {
-    const [query, setQuery] = useState('')
-    const [settings, setSettings] = useState<ZenSettings | null>(null);
-    const [isFocused, setIsFocused] = useState(false)
-    const inputRef = useRef<HTMLInputElement>(null)
+  const [query, setQuery] = useState('');
+  const [settings, setSettings] = useState<ZenSettings | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-    // Load settings and watch for changes
-    useEffect(() => {
-        getSettings().then(setSettings);
-        const unwatch = onSettingsChanged(setSettings);
-        return unwatch;
-    }, []);
+  // Load settings and watch for changes
+  useEffect(() => {
+    let unwatch: (() => void) | undefined;
+    getSettings().then(setSettings);
+    unwatch = onSettingsChanged(setSettings);
+    return () => {
+      if (unwatch) unwatch();
+    };
+  }, []);
 
-    // Focus input on mount with delay for smooth animation
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            inputRef.current?.focus()
-        }, 300)
-        return () => clearTimeout(timer)
-    }, [])
+  // Focus input on mount with slight delay
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 220);
+    return () => clearTimeout(t);
+  }, []);
 
-    // Search when form is submitted
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault()
-        if (query.trim()) {
-            window.location.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(query.trim())}`;
-        }
+  // Submit handler
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = query.trim();
+    if (q) {
+      window.location.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
     }
+  };
 
-    // Don't render if disabled
-    if (!settings?.enabled) {
-        return null;
-    }
+  // Respect setting toggle
+  if (!settings?.enabled) return null;
 
-    return (
-        <div className="fixed relative inset-0 flex flex-col items-center justify-center min-h-screen p-6 overflow-hidden">
-            {/* Gradient background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-white to-purple-50/50 dark:from-slate-900/50 dark:via-slate-800 dark:to-slate-900/50" />
+  return (
+    <div
+      // High z-index to sit above YouTube chrome reliably
+      className="fixed inset-0 z-[2147483646] flex items-center justify-center p-6"
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* Background gradient */}
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-blue-50/60 via-white to-purple-50/60 dark:from-slate-950/70 dark:via-slate-900 dark:to-slate-950/70" />
 
-            {/* Subtle pattern overlay */}
-            <div className="absolute inset-0 opacity-[0.03]" style={{
-                backgroundImage: `radial-gradient(circle at 1px 1px, rgb(0,0,0) 1px, transparent 0)`,
-                backgroundSize: '20px 20px'
-            }} />
+      {/* Subtle dot pattern */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 1px 1px, rgb(0,0,0) 1px, transparent 0)',
+          backgroundSize: '20px 20px',
+        }}
+      />
 
-            <div className="relative z-10 w-full max-w-4xl mx-auto text-center">
-                {/* Icon & Title */}
-                <div className="mb-12 animate-fade-in">
-                    <div className="flex items-center justify-center gap-3 mb-6">
-                        <div className="p-3 shadow-xl bg-gradient-to-br from-red-500 to-red-600 rounded-2xl">
-                            <Sparkles className="w-8 h-8 text-white" />
-                        </div>
-                    </div>
-                    <h1 className="mb-4 text-4xl font-bold tracking-tight text-transparent md:text-6xl bg-gradient-to-br from-slate-900 via-slate-700 to-slate-800 dark:from-white dark:via-slate-200 dark:to-slate-300 bg-clip-text">
-                        {settings.customMessage || 'Find Your Perfect Video'}
-                    </h1>
-                    <p className="text-lg font-medium md:text-xl text-slate-600 dark:text-slate-400">
-                        Search millions of videos, distraction-free
-                    </p>
-                </div>
-
-                {/* Search Form */}
-                <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto mb-8">
-                    <div className="relative group">
-                        {/* Search input with enhanced styling */}
-                        <div className={`relative transition-all duration-300 ${
-                            isFocused ? 'transform scale-[1.02]' : ''
-                        }`}>
-                            <input
-                                ref={inputRef}
-                                type="text"
-                                placeholder="What do you want to watch?"
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                onFocus={() => setIsFocused(true)}
-                                onBlur={() => setIsFocused(false)}
-                                className="w-full h-16 px-6 pr-16 text-lg font-medium transition-all duration-300 border shadow-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border-slate-200/50 dark:border-slate-700/50 rounded-2xl focus:shadow-3xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder-slate-500 dark:placeholder-slate-400 text-slate-900 dark:text-white hover:bg-white/90 dark:hover:bg-slate-800/90"
-                            />
-
-                            {/* Search button */}
-                            <button
-                                type="submit"
-                                className="absolute p-3 text-white transition-all duration-200 -translate-y-1/2 shadow-lg right-3 top-1/2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-xl hover:shadow-xl hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                                disabled={!query.trim()}
-                            >
-                                <Search className="w-6 h-6" />
-                            </button>
-                        </div>
-                    </div>
-                </form>
-
-                {/* Instructions */}
-                <div className="animate-slide-up">
-                    <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
-                        Search YouTube without distractions
-                    </p>
-
-                    {/* Keyboard hint */}
-                    <div className="inline-flex items-center gap-2 px-4 py-2 border rounded-full bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
-                        <kbd className="px-3 py-1 text-xs font-semibold border rounded shadow-sm text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-600">
-                            Enter
-                        </kbd>
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                            to search
-                        </span>
-                    </div>
-                </div>
-
-                {/* Subtle branding */}
-                <div className="absolute -translate-x-1/2 bottom-6 left-1/2 animate-fade-in" style={{ animationDelay: '0.5s' }}>
-                    <p className="text-xs font-medium text-slate-400 dark:text-slate-500">
-                        Press Alt+Z to toggle Zen mode anywhere on YouTube
-                    </p>
-                </div>
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-[48rem] text-center">
+        {/* Icon & Title */}
+        <div className="mb-10">
+          <div className="flex items-center justify-center mx-auto mb-6">
+            <div className="p-3 shadow-lg rounded-2xl bg-gradient-to-br from-red-500 to-red-600 shadow-black/10">
+              <Sparkles className="w-8 h-8 text-white" />
             </div>
+          </div>
+
+          <h1 className="mb-3 text-4xl font-semibold tracking-tight text-transparent bg-gradient-to-br from-slate-900 via-slate-700 to-slate-800 bg-clip-text md:text-6xl dark:from-white dark:via-slate-200 dark:to-slate-300">
+            {settings.customMessage || 'Find Your Perfect Video'}
+          </h1>
+
+          <p className="text-base font-medium text-slate-600 md:text-lg dark:text-slate-400">
+            Search millions of videos, distraction-free
+          </p>
         </div>
-    )
+
+        {/* Search Form */}
+        <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto mb-8">
+          <div className="relative">
+            <input
+              ref={inputRef}
+              type="text"
+              aria-label="Search YouTube"
+              enterKeyHint="search"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="What do you want to watch?"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              className={[
+                'w-full h-14 md:h-16 rounded-2xl px-6 pr-16 text-base md:text-lg font-medium',
+                // Surfaces
+                'bg-white/85 dark:bg-slate-800/85 backdrop-blur-xl',
+                'border border-slate-200/60 dark:border-slate-700/60',
+                // Text
+                'placeholder-slate-500 dark:placeholder-slate-400',
+                'text-slate-900 dark:text-white',
+                // Effects
+                'transition-shadow transition-colors duration-200',
+                isFocused
+                  ? 'ring-2 ring-blue-500/40 shadow-lg shadow-blue-500/10'
+                  : 'shadow-md shadow-black/5 hover:shadow-lg hover:shadow-black/10',
+                'outline-none focus:outline-none',
+              ].join(' ')}
+            />
+
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={!query.trim()}
+              className={[
+                'absolute right-3 top-1/2 -translate-y-1/2',
+                'rounded-xl p-2.5 md:p-3',
+                'text-white transition-transform duration-150',
+                'bg-gradient-to-r from-blue-500 to-blue-600',
+                'hover:from-blue-600 hover:to-blue-700',
+                'shadow-md shadow-blue-900/20 hover:shadow-lg',
+                'active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100',
+              ].join(' ')}
+              aria-label="Submit search"
+            >
+              <Search className="w-5 h-5 md:h-6 md:w-6" />
+            </button>
+          </div>
+        </form>
+
+        {/* Instructions */}
+        <div>
+          <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
+            Search YouTube without distractions
+          </p>
+
+          <div className="inline-flex items-center gap-2 px-4 py-2 border rounded-full border-slate-200/60 bg-white/60 backdrop-blur-sm dark:border-slate-700/60 dark:bg-slate-800/60">
+            <kbd className="px-3 py-1 text-xs font-semibold border rounded shadow-sm border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300">
+              Enter
+            </kbd>
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+              to search
+            </span>
+          </div>
+        </div>
+
+        {/* Footer hint */}
+        <div className="absolute -translate-x-1/2 pointer-events-none left-1/2 bottom-6">
+          <p className="text-xs font-medium text-slate-400 dark:text-slate-500">
+            Press Alt+Z to toggle Zen mode anywhere on YouTube
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
