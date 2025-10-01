@@ -1,6 +1,6 @@
 import {useState, useEffect, useRef} from 'react'
-import {Input} from '@/ui/input'
-import {Button} from '@/ui/button'
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
 import { getSettings, onSettingsChanged, type ZenSettings } from '@/lib/storage';
 

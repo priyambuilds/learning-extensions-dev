@@ -54,6 +54,12 @@ export default defineConfig({
             : "script-src 'self'; object-src 'self'",
         },
       }),
+      commands: {
+        'toggle-zen': {
+          suggested_key: { default: 'Alt+Z' },
+          description: 'Toggle Zen Mode',
+        },
+      },
 
       // Firefox-specific metadata
       ...(browser === 'firefox' && {
